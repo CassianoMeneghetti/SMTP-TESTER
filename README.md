@@ -10,6 +10,7 @@ Aplicacao desktop profissional em Java 26 para diagnostico completo de servidore
 - EHLO e leitura das capacidades do servidor
 - STARTTLS e SMTPS com detalhes de protocolo, cifra e certificado
 - Validacao de autenticacao PLAIN e LOGIN
+- Validacao de autenticacao OAuth2 manual via XOAUTH2
 - Envio opcional de e-mail de teste
 - Linha do tempo e log tecnico em tempo real
 
@@ -29,6 +30,18 @@ Ou manualmente:
 javac -d out $(Get-ChildItem -Recurse src/main/java -Filter *.java | ForEach-Object FullName)
 java -cp out br.com.smtptesterpro.Main
 ```
+
+## OAuth2 / XOAUTH2 manual
+
+Para testar Microsoft 365, Outlook ou outro servidor com OAuth2:
+
+1. Marque `Autenticar`.
+2. Em `Tipo auth`, selecione `OAuth2 XOAUTH2`.
+3. Informe o usuario SMTP, por exemplo `usuario@empresa.com`.
+4. Cole o access token no campo `Token OAuth2`.
+5. Use STARTTLS na porta 587, quando aplicavel.
+
+O token e enviado via `AUTH XOAUTH2` e e mascarado no log de protocolo.
 
 Se Maven estiver instalado:
 

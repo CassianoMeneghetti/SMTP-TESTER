@@ -2,6 +2,7 @@ package br.com.smtptesterpro.ui;
 
 import br.com.smtptesterpro.application.DiagnosticListener;
 import br.com.smtptesterpro.application.SmtpDiagnosticService;
+import br.com.smtptesterpro.domain.AuthMode;
 import br.com.smtptesterpro.domain.DiagnosticStep;
 import br.com.smtptesterpro.domain.SecurityMode;
 import br.com.smtptesterpro.domain.SmtpTestRequest;
@@ -45,8 +46,10 @@ public final class AppFrame extends JFrame {
     private final JComboBox<SecurityMode> securityField = new JComboBox<>(SecurityMode.values());
     private final JTextField ehloField = new JTextField("localhost", 16);
     private final JCheckBox authCheck = new JCheckBox("Autenticar");
+    private final JComboBox<AuthMode> authModeField = new JComboBox<>(AuthMode.values());
     private final JTextField userField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
+    private final JTextArea oauthTokenField = new JTextArea(4, 20);
     private final JCheckBox sendCheck = new JCheckBox("Enviar e-mail de teste");
     private final JTextField fromField = new JTextField(22);
     private final JTextField toField = new JTextField(22);
@@ -106,6 +109,10 @@ public final class AppFrame extends JFrame {
     private JPanel buildForm() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Configuracao"));
+        oauthTokenField.setLineWrap(true);
+        oauthTokenField.setWrapStyleWord(false);
+        bodyField.setLineWrap(true);
+        bodyField.setWrapStyleWord(true);
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(5, 6, 5, 6);
         c.anchor = GridBagConstraints.WEST;
@@ -118,16 +125,18 @@ public final class AppFrame extends JFrame {
         addField(panel, c, 3, "EHLO", ehloField);
         addField(panel, c, 4, "Timeout ms", timeoutField);
         addFull(panel, c, 5, authCheck);
-        addField(panel, c, 6, "Usuario", userField);
-        addField(panel, c, 7, "Senha", passwordField);
-        addFull(panel, c, 8, sendCheck);
-        addField(panel, c, 9, "Remetente", fromField);
-        addField(panel, c, 10, "Destinatario", toField);
-        addField(panel, c, 11, "Assunto", subjectField);
-        addField(panel, c, 12, "Corpo", new JScrollPane(bodyField));
+        addField(panel, c, 6, "Tipo auth", authModeField);
+        addField(panel, c, 7, "Usuario", userField);
+        addField(panel, c, 8, "Senha", passwordField);
+        addField(panel, c, 9, "Token OAuth2", new JScrollPane(oauthTokenField));
+        addFull(panel, c, 10, sendCheck);
+        addField(panel, c, 11, "Remetente", fromField);
+        addField(panel, c, 12, "Destinatario", toField);
+        addField(panel, c, 13, "Assunto", subjectField);
+        addField(panel, c, 14, "Corpo", new JScrollPane(bodyField));
 
         JPanel filler = new JPanel();
-        c.gridy = 13;
+        c.gridy = 15;
         c.weighty = 1;
         panel.add(filler, c);
         return panel;
@@ -178,14 +187,19 @@ public final class AppFrame extends JFrame {
         clearButton.addActionListener(event -> clearResults());
         runButton.addActionListener(event -> startDiagnostic());
         authCheck.addActionListener(event -> updateEnabledFields());
+        authModeField.addActionListener(event -> updateEnabledFields());
         sendCheck.addActionListener(event -> updateEnabledFields());
         securityField.setSelectedItem(SecurityMode.STARTTLS);
         updateEnabledFields();
     }
 
     private void updateEnabledFields() {
-        userField.setEnabled(authCheck.isSelected());
-        passwordField.setEnabled(authCheck.isSelected());
+        boolean authenticate = authCheck.isSelected();
+        boolean xoauth2 = authModeField.getSelectedItem() == AuthMode.XOAUTH2;
+        authModeField.setEnabled(authenticate);
+        userField.setEnabled(authenticate);
+        passwordField.setEnabled(authenticate && !xoauth2);
+        oauthTokenField.setEnabled(authenticate && xoauth2);
         fromField.setEnabled(sendCheck.isSelected() || authCheck.isSelected());
         toField.setEnabled(sendCheck.isSelected());
         subjectField.setEnabled(sendCheck.isSelected());
@@ -233,9 +247,11 @@ public final class AppFrame extends JFrame {
                 hostField.getText().trim(),
                 Integer.parseInt(portField.getText().trim()),
                 (SecurityMode) securityField.getSelectedItem(),
+                (AuthMode) authModeField.getSelectedItem(),
                 ehloField.getText().trim().isBlank() ? "localhost" : ehloField.getText().trim(),
                 userField.getText().trim(),
                 passwordField.getPassword(),
+                oauthTokenField.getText().replaceAll("\\s+", "").toCharArray(),
                 fromField.getText().trim(),
                 toField.getText().trim(),
                 subjectField.getText().trim(),

@@ -7,9 +7,11 @@ public record SmtpTestRequest(
         String host,
         int port,
         SecurityMode securityMode,
+        AuthMode authMode,
         String ehloDomain,
         String username,
         char[] password,
+        char[] oauthAccessToken,
         String from,
         String to,
         String subject,
@@ -21,6 +23,7 @@ public record SmtpTestRequest(
     public SmtpTestRequest {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(securityMode, "securityMode");
+        Objects.requireNonNull(authMode, "authMode");
         Objects.requireNonNull(ehloDomain, "ehloDomain");
         Objects.requireNonNull(timeout, "timeout");
         if (host.isBlank()) {
@@ -32,8 +35,12 @@ public record SmtpTestRequest(
         if (authenticate && (username == null || username.isBlank())) {
             throw new IllegalArgumentException("Usuario e obrigatorio quando autenticacao esta ativa.");
         }
+        oauthAccessToken = oauthAccessToken == null ? new char[0] : oauthAccessToken.clone();
         if (sendMessage && (from == null || from.isBlank() || to == null || to.isBlank())) {
             throw new IllegalArgumentException("Remetente e destinatario sao obrigatorios para envio.");
+        }
+        if (authenticate && authMode == AuthMode.XOAUTH2 && oauthAccessToken.length == 0) {
+            throw new IllegalArgumentException("Access token OAuth2 e obrigatorio para autenticacao XOAUTH2.");
         }
         password = password == null ? new char[0] : password.clone();
     }
@@ -41,5 +48,10 @@ public record SmtpTestRequest(
     @Override
     public char[] password() {
         return password.clone();
+    }
+
+    @Override
+    public char[] oauthAccessToken() {
+        return oauthAccessToken.clone();
     }
 }

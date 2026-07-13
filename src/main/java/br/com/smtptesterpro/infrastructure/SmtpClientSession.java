@@ -1,6 +1,7 @@
 package br.com.smtptesterpro.infrastructure;
 
 import br.com.smtptesterpro.application.DiagnosticListener;
+import br.com.smtptesterpro.domain.AuthMode;
 import br.com.smtptesterpro.domain.CertificateInfo;
 import br.com.smtptesterpro.domain.DiagnosticStatus;
 import br.com.smtptesterpro.domain.SecurityMode;
@@ -107,7 +108,12 @@ public final class SmtpClientSession implements Closeable {
         listener.onStep(running("Autenticacao", "Validando credenciais SMTP"));
         long start = System.nanoTime();
         try {
-            if (capabilities.supportsAuth("PLAIN")) {
+            if (request.authMode() == AuthMode.XOAUTH2) {
+                if (!capabilities.supportsAuth("XOAUTH2")) {
+                    throw new IllegalStateException("Servidor nao anunciou AUTH XOAUTH2.");
+                }
+                authenticateXoauth2();
+            } else if (capabilities.supportsAuth("PLAIN")) {
                 authenticatePlain();
             } else if (capabilities.supportsAuth("LOGIN")) {
                 authenticateLogin();
@@ -180,6 +186,17 @@ public final class SmtpClientSession implements Closeable {
         expectCode(command("AUTH LOGIN"), 334, "AUTH LOGIN recusado");
         expectCode(command(Base64.getEncoder().encodeToString(request.username().getBytes(StandardCharsets.UTF_8)), true), 334, "Usuario recusado");
         expectPositive(command(Base64.getEncoder().encodeToString(new String(request.password()).getBytes(StandardCharsets.UTF_8)), true), "Senha recusada");
+    }
+
+    private void authenticateXoauth2() {
+        String token = new String(request.oauthAccessToken());
+        String xoauth2 = "user=" + request.username() + "\u0001auth=Bearer " + token + "\u0001\u0001";
+        String encoded = Base64.getEncoder().encodeToString(xoauth2.getBytes(StandardCharsets.UTF_8));
+        SmtpResponse response = command("AUTH XOAUTH2 " + encoded, true);
+        if (response.code() == 334) {
+            response = command(encoded, true);
+        }
+        expectPositive(response, "AUTH XOAUTH2 recusado");
     }
 
     private SmtpResponse command(String command) {
@@ -256,9 +273,13 @@ public final class SmtpClientSession implements Closeable {
                 startTls = true;
             }
             if (upper.startsWith("AUTH")) {
-                String[] tokens = extension.split("\\s+");
-                for (int i = 1; i < tokens.length; i++) {
-                    auth.add(tokens[i].toUpperCase(Locale.ROOT));
+                String authValue = extension;
+                if (upper.startsWith("AUTH=")) {
+                    authValue = "AUTH " + extension.substring(5);
+                }
+                String[] mechanisms = authValue.split("\\s+");
+                for (int i = 1; i < mechanisms.length; i++) {
+                    auth.add(mechanisms[i].toUpperCase(Locale.ROOT));
                 }
             }
         }
